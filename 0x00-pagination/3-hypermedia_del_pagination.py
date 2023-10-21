@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
+"""Deletion-resilient hypermedia pagination
 """
-Deletion-resilient hypermedia pagination
-"""
-
 import csv
-from typing import List, Dict
+from typing import Dict, List
 
 
 class Server:
@@ -13,6 +11,8 @@ class Server:
     DATA_FILE = "Popular_Baby_Names.csv"
 
     def __init__(self):
+        """Initializes a new Server instance.
+        """
         self.__dataset = None
         self.__indexed_dataset = None
 
@@ -32,38 +32,34 @@ class Server:
         """
         if self.__indexed_dataset is None:
             dataset = self.dataset()
-            print(dataset)
-            print(type(dataset))
-            print(len(dataset))
+            truncated_dataset = dataset[:1000]
             self.__indexed_dataset = {
                 i: dataset[i] for i in range(len(dataset))
             }
         return self.__indexed_dataset
 
     def get_hyper_index(self, index: int = None, page_size: int = 10) -> Dict:
-        """The goal here is that if between two queries, certain rows are
-        removed from the dataset, the user does not miss items from dataset
-        when changing page.
+        """Retrieves info about a page from a given index and with a
+        specified size.
         """
-
-        limit_index = len(self.__indexed_dataset) - 1
-        assert index <= limit_index and index >= 0
-
-        keys = list(self.__indexed_dataset.keys())
-
-        start_slice = index
-        while start_slice <= limit_index:
-            if start_slice in keys:
-                start_slice = keys.index(start_slice)
+        data = self.indexed_dataset()
+        assert index is not None and index >= 0 and index <= max(data.keys())
+        page_data = []
+        data_count = 0
+        next_index = None
+        start = index if index else 0
+        for i, item in data.items():
+            if i >= start and data_count < page_size:
+                page_data.append(item)
+                data_count += 1
+                continue
+            if data_count == page_size:
+                next_index = i
                 break
-            else:
-                start_slice += 1
-
-        final_slice = start_slice + page_size
-        keys_page = keys[index: final_slice]
-        data = [self.__indexed_dataset[i] for i in keys_page]
-        hyper_index = {
-            "index": index, "next_index": keys[final_slice],
-            "page_size": page_size, "data": data
+        page_info = {
+            'index': index,
+            'next_index': next_index,
+            'page_size': len(page_data),
+            'data': page_data,
         }
-        return hyper_index
+        return page_info
